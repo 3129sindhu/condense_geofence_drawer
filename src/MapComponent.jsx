@@ -86,7 +86,8 @@ const geojson={
     const poly = polygon([latLngs]);
 
     const polyJson={
-      fencegeoJson:poly
+      fencegeoJson:poly,
+      Radius:radius/1000
     }
     setgeoJsonPoly(polyJson);
   }
