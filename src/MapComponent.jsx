@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, useMap, Marker,Circle,Polygon} from "react-leaflet";
+import { MapContainer,TileLayer, useMap, Marker,Circle,Polygon,useMapEvents, Polyline} from "react-leaflet";
 import "../node_modules/leaflet/dist/leaflet.css";
 import {
   Row,
@@ -12,7 +12,7 @@ import {
 } from "react-bootstrap";
 import { useEffect, useState } from "react";
 import { featureCollection, point } from "@turf/helpers";
-import { circle,polygon } from "@turf/turf";
+import { circle,polygon,lineString } from "@turf/turf";
 
 const MapComponent = () => {
   const [selectedFenceType, setSelectedFenceType] = useState(null);
@@ -23,6 +23,10 @@ const MapComponent = () => {
   const [geoJson, setGeoJson] = useState(null);
   const [geoJsonPoly,setgeoJsonPoly]=useState(null)
   const [polygonPoints, setPolygonPoints] = useState([]);
+  const [polylinePoints, setPolylinePoints] = useState([]);
+  const [geoJsonRoute,setgeoJsonRoute]=useState(null)
+  const [isSubmitEnabled, setIsSubmitEnabled] = useState(false);
+  const [isPolySubmitEnabled,setIsPolySubmitEnabled]=useState(false)
 
 
   const geoFenceSelector = (e) => {
@@ -65,24 +69,20 @@ const geojson={
   setGeoJson(geojson)
   }
 
-  const addPoint = () => {
-    setPolygonPoints([...polygonPoints, [0, 0]]);
-  };
-
-  const handleLatitudeChangePolygon= (index, value) => {
-    const newPoints = [...polygonPoints];
-    newPoints[index] = [value, newPoints[index][1]];
-    setPolygonPoints(newPoints);
-  };
-
-  const handleLongitudeChangePolygon = (index, value) => {
-    const newPoints = [...polygonPoints];
-    newPoints[index] = [newPoints[index][0], value];
-    setPolygonPoints(newPoints);
-  };
+  const handlePolygonMapClick=(e)=>{
+    const {lat,lng}=e.latlng
+    setPolygonPoints([...polygonPoints,[lat,lng]])
+  }
 
   const handleSubmitPolygon=()=>{
-    const latLngs = polygonPoints.map((point) => [parseFloat(point[1]), parseFloat(point[0])]);
+
+    let points = [...polygonPoints];
+    const firstPoint = points[0];
+    const lastPoint = points[points.length - 1];
+    if (firstPoint[0] !== lastPoint[0] || firstPoint[1] !== lastPoint[1]) {
+      points.push(firstPoint);
+    }
+    const latLngs = points.map((point) => [parseFloat(point[1]), parseFloat(point[0])]);
     const poly = polygon([latLngs]);
 
     const polyJson={
@@ -91,13 +91,59 @@ const geojson={
     setgeoJsonPoly(polyJson);
   }
 
+
+  const ClickHandler = ({ onClick }) => {
+  
+    useMapEvents({
+      click: (e) => {
+        onClick(e);
+      },
+    });
+
+    return null;
+  };
+  const handleMapClick=(e)=>{
+    console.log("handlemapclick")
+    const {lat,lng}=e.latlng
+    console.log("latlng",{lat ,lng})
+    setPolylinePoints([...polylinePoints, [lat, lng]]);
+    console.log("before set",geoJsonRoute)
+
+  }
+
+  
+  const handleSubmitRoute=()=>{
+    console.log("polypointslength",polylinePoints.length)
+    const coordinates = polylinePoints.map((point) => [point[1], point[0]]);
+    const line = lineString(coordinates);
+    const routejson={
+      fencegeoJson:line
+
+    }
+    setgeoJsonRoute(routejson)
+    console.log("geojson",geoJsonRoute)
+    
+
+  }
+
   useEffect(() => {
     setCircleCenter(null)
     setPolygonPoints([])
     setGeoJson(null)
     setgeoJsonPoly(null)
+    setPolylinePoints([])
+    setgeoJsonRoute(null)
+    setRadius(null)
     
   }, [selectedFenceType]);
+
+  useEffect(()=>{
+    setIsSubmitEnabled(polylinePoints.length>1)
+  },[polylinePoints])
+
+  useEffect(()=>{
+    setIsPolySubmitEnabled(polygonPoints.length>3)
+  },[polygonPoints])
 
   const position = [12.982867217730057, 77.54874525597238];
  
@@ -203,7 +249,7 @@ const geojson={
                   {geoJson && (
                      <Row>
                        <Col xs={12} style={{ marginTop: "20px" }}>
-                         <h5>Data:</h5>
+                         <h5>Json:</h5>
                            <pre style={{overflow:"unset"}}>{JSON.stringify(geoJson, null, 2)}</pre>
                         </Col>
                       </Row>
@@ -211,48 +257,85 @@ const geojson={
                   </Row>
                 )}
                 {selectedFenceType==="POLYGON" &&(
-                  <Row>
-                    <Col xs={12} style={{ marginTop: "20px" }}>
-                    <Button onClick={addPoint} >Add Point</Button>
-                  </Col>
-                 
+                  <div >
+                    <Col xs={12}>
+                      <InputGroup size="sm" onChange={handleRadiusSelector}>
+                        <InputGroup.Text>
+                          <b>Radius</b>
+                        </InputGroup.Text>
+                        <Form.Control
+                        type="number"
 
-                  <Col xs={12}>
-          {polygonPoints.map((point, index) => (
-            <Row key={index}>
-              <Col>
-                <Form.Control
-                  type="number"
-                  placeholder="Latitude"
-                  value={point[0]}
-                  onChange={(e) => handleLatitudeChangePolygon(index, e.target.value)}
-                />
-              </Col>
-              <Col>
-                <Form.Control
-                  type="number"
-                  placeholder="Longitude"
-                  value={point[1]}
-                  onChange={(e) => handleLongitudeChangePolygon(index, e.target.value)}
-                />
-              </Col>
-            </Row>
-          ))}
-        </Col>
-                 <Col xs={12} style={{ marginTop: "20px" }}>
-                    <Button onClick={handleSubmitPolygon}>Submit</Button>
+                          aria-label="Small"
+                          aria-describedby="inputGroup-sizing-sm"
+                        />
+                      </InputGroup>
+                    </Col>
+                  <h5>Selected Points:</h5>
+                  <table className="table" >
+                    <thead>
+                      <tr>
+                        <th>Latitude</th>
+                        <th>Longitude</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {polygonPoints.map((point, index) => (
+                        <tr key={index}>
+                          <td>{point[0]}</td>
+                          <td>{point[1]}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <Col xs={12} style={{ marginTop: "20px" }}>
+                    <Button onClick={handleSubmitPolygon } disabled={!isPolySubmitEnabled}>Submit</Button>
                   </Col>
 
                   {geoJsonPoly && (
                      <Row>
                        <Col xs={12} style={{ marginTop: "20px" }}>
-                         <h5>Data:</h5>
+                         <h5>Json:</h5>
                            <pre style={{overflow:"unset"}}>{JSON.stringify(geoJsonPoly, null, 2)}</pre>
                         </Col>
                       </Row>
                    )}
-                  </Row>
+                  </div>
                 )} 
+                {selectedFenceType==="ROUTE"&&(
+                  <div >
+                  <h5>Selected Points:</h5>
+                  <table className="table" >
+                    <thead>
+                      <tr>
+                        <th>Latitude</th>
+                        <th>Longitude</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {polylinePoints.map((point, index) => (
+                        <tr key={index}>
+                          <td>{point[0]}</td>
+                          <td>{point[1]}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <Col xs={12} style={{ marginTop: "20px" }}>
+                    <Button onClick={handleSubmitRoute } disabled={!isSubmitEnabled}>Submit</Button>
+                  </Col>
+
+                  {geoJsonRoute &&(
+                     <Row>
+                       <Col xs={12} style={{ marginTop: "20px" }}>
+                         <h5>Json:</h5>
+                           <pre style={{overflow:"unset"}}>{JSON.stringify(geoJsonRoute, null, 2)}</pre>
+                        </Col>
+                      </Row>
+                   )}
+
+                </div>
+                )}
               </Container>
             </Col>
           </Row>
@@ -266,10 +349,11 @@ const geojson={
             style={{
               height: "100vh",
               width: "100%",
-              marginLeft:"10%"
+              marginLeft:"15%"
             }}
             gestureHandling={true}
           >
+           
             {circleCenter&&(
               <>
                             <Circle
@@ -277,19 +361,31 @@ const geojson={
                                 radius={radius}
                                 fillColor="#f44242"
                                 color="#f44242"
+                                
                             />
                             <Marker position={circleCenter}></Marker>
                             </>)
                             }
                             {
-                              polygonPoints&&(
+                              polygonPoints&& selectedFenceType==="POLYGON" &&(
+                                <>
+                                <ClickHandler onClick={handlePolygonMapClick} />
                                 <Polygon positions={polygonPoints}></Polygon>
+                                </>
                               )
+                            }
+                            {polylinePoints && selectedFenceType==="ROUTE" &&(
+                              <>
+                             <ClickHandler onClick={handleMapClick} />
+                             <Polyline positions={polylinePoints} color="blue" />
+                             </>
+                            )
                             }
                           
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              
             />
             
           </MapContainer>
