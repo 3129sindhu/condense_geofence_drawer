@@ -87,7 +87,6 @@ const geojson={
 
     const polyJson={
       fencegeoJson:poly,
-      Radius:radius/1000
     }
     setgeoJsonPoly(polyJson);
   }
@@ -118,7 +117,8 @@ const geojson={
     const coordinates = polylinePoints.map((point) => [point[1], point[0]]);
     const line = lineString(coordinates);
     const routejson={
-      fencegeoJson:line
+      fencegeoJson:line,
+      fenceRadius:radius/1000
 
     }
     setgeoJsonRoute(routejson)
@@ -259,19 +259,7 @@ const geojson={
                 )}
                 {selectedFenceType==="POLYGON" &&(
                   <div >
-                    <Col xs={12}>
-                      <InputGroup size="sm" onChange={handleRadiusSelector}>
-                        <InputGroup.Text>
-                          <b>Radius</b>
-                        </InputGroup.Text>
-                        <Form.Control
-                        type="number"
-
-                          aria-label="Small"
-                          aria-describedby="inputGroup-sizing-sm"
-                        />
-                      </InputGroup>
-                    </Col>
+                   
                   <h5>Selected Points:</h5>
                   <table className="table" >
                     <thead>
@@ -305,6 +293,19 @@ const geojson={
                 )} 
                 {selectedFenceType==="ROUTE"&&(
                   <div >
+                     <Col xs={12}>
+                      <InputGroup size="sm" onChange={handleRadiusSelector}>
+                        <InputGroup.Text>
+                          <b>Radius</b>
+                        </InputGroup.Text>
+                        <Form.Control
+                        type="number"
+
+                          aria-label="Small"
+                          aria-describedby="inputGroup-sizing-sm"
+                        />
+                      </InputGroup>
+                    </Col>
                   <h5>Selected Points:</h5>
                   <table className="table" >
                     <thead>
