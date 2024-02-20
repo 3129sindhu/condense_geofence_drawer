@@ -1,4 +1,4 @@
-import { MapContainer,TileLayer, useMap, Marker,Circle,Polygon,useMapEvents, Polyline} from "react-leaflet";
+import { MapContainer,TileLayer, Marker,Circle,Polygon,useMapEvents, Polyline} from "react-leaflet";
 import "../node_modules/leaflet/dist/leaflet.css";
 import {
   Row,
@@ -12,7 +12,7 @@ import {
 } from "react-bootstrap";
 import { useEffect, useState } from "react";
 import { featureCollection, point } from "@turf/helpers";
-import { circle,polygon,lineString } from "@turf/turf";
+import { polygon,lineString ,buffer} from "@turf/turf";
 
 const MapComponent = () => {
   const [selectedFenceType, setSelectedFenceType] = useState(null);
@@ -27,6 +27,7 @@ const MapComponent = () => {
   const [geoJsonRoute,setgeoJsonRoute]=useState(null)
   const [isSubmitEnabled, setIsSubmitEnabled] = useState(false);
   const [isPolySubmitEnabled,setIsPolySubmitEnabled]=useState(false)
+  const [bufferedPoints,setBufferedPoints]=useState([])
 
 
   const geoFenceSelector = (e) => {
@@ -34,7 +35,7 @@ const MapComponent = () => {
   };
 
   const handleRadiusSelector = (e) => {
-    const rad=e.target.value*1000
+    const rad=e.target.value
     setRadius(rad)
   };
 
@@ -62,7 +63,7 @@ const MapComponent = () => {
   // };
 
 const geojson={
-  fenceRadius:radius/1000,
+  fenceRadius:radius,
   Latitude:Latitude,
   Longitude:Longitude
 }
@@ -118,13 +119,24 @@ const geojson={
     const line = lineString(coordinates);
     const routejson={
       fencegeoJson:line,
-      fenceRadius:radius/1000
-
-    }
-    setgeoJsonRoute(routejson)
-    console.log("geojson",geoJsonRoute)
+       fenceRadius:radius
     
+}
+      setgeoJsonRoute(routejson)
+    console.log("geojson",geoJsonRoute)
+    const buffered = buffer(line, radius / 1000, { units: 'kilometers' });
+    console.log("bufferpoints",buffered)
+    const fenceCoordinates=[]
+    const fencePathCoordinates = buffered.geometry.coordinates[0]
+    const fenceLength = buffered.geometry.coordinates[0].length
+    for(let i=0;i<fenceLength;i++){
+          const cord=fencePathCoordinates[i];
+          fenceCoordinates.push([cord[1],cord[0]])
+    }
 
+    setBufferedPoints(fenceCoordinates);
+    
+    
   }
 
   useEffect(() => {
@@ -135,6 +147,7 @@ const geojson={
     setPolylinePoints([])
     setgeoJsonRoute(null)
     setRadius(null)
+    setBufferedPoints(null)
     
   }, [selectedFenceType]);
 
@@ -150,8 +163,8 @@ const geojson={
  
   return (
     <Container style={{ margin: "5px" }}>
-      <Row>
-        <Col md={2}>
+      <Row style={{width:"150vh"}} >
+        <Col md={3} style={{height:"100vh" }}>
           <Row>
             <Col xs={12}>
               <h5>Condense Geo-fence</h5>
@@ -307,6 +320,7 @@ const geojson={
                       </InputGroup>
                     </Col>
                   <h5>Selected Points:</h5>
+                  <Col xs={12} style={{height:"20vh",overflow:"auto"}}>
                   <table className="table" >
                     <thead>
                       <tr>
@@ -323,13 +337,14 @@ const geojson={
                       ))}
                     </tbody>
                   </table>
+                  </Col>
                   <Col xs={12} style={{ marginTop: "20px" }}>
                     <Button onClick={handleSubmitRoute } disabled={!isSubmitEnabled}>Submit</Button>
                   </Col>
 
                   {geoJsonRoute &&(
                      <Row>
-                       <Col xs={12} style={{ marginTop: "20px" }}>
+                       <Col xs={12} style={{ marginTop: "20px",height:"40vh",overflow:"auto" }}>
                          <h5>Json:</h5>
                            <pre style={{overflow:"unset"}}>{JSON.stringify(geoJsonRoute, null, 2)}</pre>
                         </Col>
@@ -343,7 +358,7 @@ const geojson={
           </Row>
         </Col>
 
-        <Col sm={12} md={10} lg={10}>
+        <Col sm={12} md={9} lg={9}>
           <MapContainer
             center={position}
             zoom={13}
@@ -382,7 +397,10 @@ const geojson={
                              <Polyline positions={polylinePoints} color="blue" />
                              </>
                             )
-                            }
+                                                        }
+                            {bufferedPoints&& selectedFenceType==="ROUTE"&&(
+                              <Polygon  positions={bufferedPoints} ></Polygon>
+                            ) }
                           
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
